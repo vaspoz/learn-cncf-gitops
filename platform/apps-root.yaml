@@ -1,0 +1,38 @@
+# Second level of the app-of-apps tree.
+#
+# root (platform/) --> this --> apps/*/application.yaml
+#
+# Keeps platform components and user applications in separate trees, so adding
+# an app is "create apps/<name>/ with two files and push" -- no change here.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps-root
+  namespace: argocd
+  annotations:
+    # Wave 2: user apps create CNPG Clusters, which need the operator's CRDs
+    # (wave 0) and the barman plugin (wave 1) to already exist.
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/vaspoz/learn-cncf-gitops.git
+    targetRevision: HEAD
+    path: apps
+    directory:
+      recurse: true
+      # Only the Application manifests. Without this, Argo would try to apply
+      # each values.yaml as a Kubernetes manifest and fail.
+      include: "*/application.yaml"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

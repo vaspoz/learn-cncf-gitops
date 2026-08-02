@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app-with-db.name" . }}
+  labels:
+    {{- include "app-with-db.labels" . | nindent 4 }}
+  annotations:
+    # Wave 1: the database Cluster (wave 0) gets a head start. The app still
+    # retries on its own, so this only reduces noisy CrashLoopBackOff.
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: {{ .Values.app.replicas }}
+  selector:
+    matchLabels:
+      {{- include "app-with-db.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app-with-db.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: app
+          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+          imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.app.containerPort }}
+
+          env:
+            # CNPG generates this Secret. Key `uri` is the full connection
+            # string, pointing at the -rw Service, so it follows failover.
+            - name: PGRST_DB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "app-with-db.dbSecret" . }}
+                  key: uri
+            - name: PGRST_DB_ANON_ROLE
+              value: {{ .Values.app.anonRole | quote }}
+            - name: PGRST_DB_SCHEMAS
+              value: {{ .Values.app.schemas | quote }}
+            - name: PGRST_SERVER_PORT
+              value: {{ .Values.app.containerPort | quote }}
+            - name: PGRST_ADMIN_SERVER_PORT
+              value: "3001"
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+          resources:
+            {{- toYaml .Values.app.resources | nindent 12 }}

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: app-with-db
+description: An application bundled with its own PostgreSQL cluster, managed by CloudNativePG
+type: application
+version: 0.1.0
+appVersion: "1.0"
+
+keywords:
+  - postgresql
+  - cloudnative-pg
+  - gitops

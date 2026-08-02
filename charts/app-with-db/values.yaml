@@ -1,0 +1,82 @@
+# Everything a user of this chart normally needs to touch.
+# Defaults produce a working app + 3-instance HA Postgres with no edits.
+
+app:
+  # PostgREST turns the database into a REST API -- a small stand-in for
+  # "some app that needs a DB". Swap the image and env for your own.
+  image:
+    repository: postgrest/postgrest
+    tag: v14.16
+    pullPolicy: IfNotPresent
+
+  replicas: 2
+  containerPort: 3000
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+  # Read-only role PostgREST switches to for anonymous requests.
+  # Created by the database bootstrap SQL below.
+  anonRole: web_anon
+  schemas: public
+
+database:
+  instances: 3
+
+  # Major version. CNPG picks the matching image.
+  version: "18"
+
+  name: appdb
+  owner: appuser
+
+  storage:
+    size: 5Gi
+    storageClass: gp3
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+
+  # Synchronous replication: commits wait for `number` replicas.
+  # RPO = 0. Needs instances >= number + 2 to survive a replica loss.
+  synchronous:
+    enabled: true
+    number: 1
+
+  parameters:
+    max_connections: "100"
+
+  # SQL run once, in the application database, right after initdb.
+  # Creates the demo table and the anonymous role PostgREST needs.
+  initSQL:
+    - CREATE TABLE IF NOT EXISTS notes (id serial PRIMARY KEY, body text NOT NULL, created_at timestamptz DEFAULT now())
+    - INSERT INTO notes (body) VALUES ('hello from gitops')
+    - CREATE ROLE web_anon NOLOGIN
+    - GRANT USAGE ON SCHEMA public TO web_anon
+    - GRANT SELECT ON ALL TABLES IN SCHEMA public TO web_anon
+    - GRANT web_anon TO appuser
+
+# Continuous backup to S3 via the barman-cloud plugin.
+# Requires an EKS Pod Identity association for the ServiceAccount named
+# after the database cluster (see terraform in the learn-cncf-psql repo).
+backup:
+  enabled: false
+  destinationPath: ""   # e.g. s3://learn-cncf-pg-backups-719774349456/
+  retentionPolicy: 7d
+  wal:
+    compression: zstd
+    maxParallel: 4
+  data:
+    compression: snappy
+    jobs: 2

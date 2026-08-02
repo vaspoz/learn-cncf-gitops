@@ -1,0 +1,26 @@
+{{ .Release.Name }} deployed.
+
+Database cluster : {{ include "app-with-db.dbName" . }}  ({{ .Values.database.instances }} instances)
+Credentials      : secret/{{ include "app-with-db.dbSecret" . }}
+Backups          : {{ if .Values.backup.enabled }}{{ .Values.backup.destinationPath }}{{ else }}disabled{{ end }}
+
+Watch the database come up:
+
+  kubectl -n {{ .Release.Namespace }} get cluster {{ include "app-with-db.dbName" . }} -w
+
+Which instance is primary:
+
+  kubectl -n {{ .Release.Namespace }} get pods -L cnpg.io/instanceRole
+
+Reach the app:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "app-with-db.name" . }} 8080:{{ .Values.app.service.port }}
+  curl localhost:8080/notes
+
+Write through the API (PostgREST exposes the notes table):
+
+  curl localhost:8080/notes -H 'Content-Type: application/json' -d '{"body":"written over http"}'
+
+Connect with psql:
+
+  kubectl -n {{ .Release.Namespace }} exec -it {{ include "app-with-db.dbName" . }}-1 -c postgres -- psql -U postgres -d {{ .Values.database.name }}

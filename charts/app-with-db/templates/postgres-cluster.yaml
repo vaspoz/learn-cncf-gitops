@@ -1,0 +1,56 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "app-with-db.dbName" . }}
+  labels:
+    {{- include "app-with-db.labels" . | nindent 4 }}
+  annotations:
+    # Argo CD has no way to know a Postgres cluster is still bootstrapping,
+    # so give it a generous window before calling the sync failed.
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  instances: {{ .Values.database.instances }}
+  imageName: ghcr.io/cloudnative-pg/postgresql:{{ .Values.database.version }}
+
+  storage:
+    size: {{ .Values.database.storage.size }}
+    {{- with .Values.database.storage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+
+  resources:
+    {{- toYaml .Values.database.resources | nindent 4 }}
+
+  bootstrap:
+    initdb:
+      database: {{ .Values.database.name }}
+      owner: {{ .Values.database.owner }}
+      {{- with .Values.database.initSQL }}
+      postInitApplicationSQL:
+        {{- range . }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- end }}
+
+  postgresql:
+    {{- with .Values.database.parameters }}
+    parameters:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- if .Values.database.synchronous.enabled }}
+    {{- if lt (int .Values.database.instances) (add (int .Values.database.synchronous.number) 2) }}
+    {{- fail "database.instances must be at least database.synchronous.number + 2, otherwise losing one replica blocks all writes" }}
+    {{- end }}
+    synchronous:
+      method: any
+      number: {{ .Values.database.synchronous.number }}
+      dataDurability: required
+    {{- end }}
+
+  {{- if .Values.backup.enabled }}
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ include "app-with-db.objectStoreName" . }}
+  {{- end }}

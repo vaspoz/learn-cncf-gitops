@@ -1,0 +1,30 @@
+{{- if .Values.backup.enabled }}
+{{- if not .Values.backup.destinationPath }}
+{{- fail "backup.enabled is true but backup.destinationPath is empty" }}
+{{- end }}
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ include "app-with-db.objectStoreName" . }}
+  labels:
+    {{- include "app-with-db.labels" . | nindent 4 }}
+  annotations:
+    # Must exist before the Cluster references it.
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  retentionPolicy: {{ .Values.backup.retentionPolicy }}
+
+  configuration:
+    destinationPath: {{ .Values.backup.destinationPath | quote }}
+
+    # No access keys. The Postgres pods run as a ServiceAccount named after
+    # the Cluster, bound to an IAM role through EKS Pod Identity.
+    s3Credentials:
+      inheritFromIAMRole: true
+
+    wal:
+      {{- toYaml .Values.backup.wal | nindent 6 }}
+
+    data:
+      {{- toYaml .Values.backup.data | nindent 6 }}
+{{- end }}

@@ -1,0 +1,32 @@
+# The one manifest applied by hand. Everything else arrives through git.
+#
+#   kubectl apply -f bootstrap/root-app.yaml
+#
+# This is the "app of apps" pattern: a single Argo CD Application whose
+# resources are themselves Applications. Add a file under platform/ and push,
+# and this Application notices it and creates it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/vaspoz/learn-cncf-gitops.git
+    targetRevision: HEAD
+    path: platform
+    directory:
+      recurse: true
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

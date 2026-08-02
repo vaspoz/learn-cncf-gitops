@@ -1,54 +1,54 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: demo
-  namespace: argocd
-  annotations:
-    # Wave 2: the CNPG operator and its CRDs must exist before a Cluster
-    # resource can even be applied.
-    argocd.argoproj.io/sync-wave: "2"
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
-spec:
-  project: default
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: demo
+#   namespace: argocd
+#   annotations:
+#     # Wave 2: the CNPG operator and its CRDs must exist before a Cluster
+#     # resource can even be applied.
+#     argocd.argoproj.io/sync-wave: "2"
+#   finalizers:
+#     - resources-finalizer.argocd.argoproj.io
+# spec:
+#   project: default
 
-  source:
-    repoURL: https://github.com/vaspoz/learn-cncf-gitops.git
-    targetRevision: HEAD
-    path: charts/app-with-db
+#   source:
+#     repoURL: https://github.com/vaspoz/learn-cncf-gitops.git
+#     targetRevision: HEAD
+#     path: charts/app-with-db
 
-    # This is the surface a user of this repo edits. Everything else in the
-    # chart has a sensible default.
-    helm:
-      valuesObject:
-        app:
-          replicas: 2
+#     # This is the surface a user of this repo edits. Everything else in the
+#     # chart has a sensible default.
+#     helm:
+#       valuesObject:
+#         app:
+#           replicas: 2
 
-        database:
-          instances: 3
-          storage:
-            size: 5Gi
+#         database:
+#           instances: 3
+#           storage:
+#             size: 5Gi
 
-        # Flip on once an EKS Pod Identity association exists for the
-        # ServiceAccount `demo-db` in namespace `demo`.
-        backup:
-          enabled: false
-          destinationPath: ""
+#         # Flip on once an EKS Pod Identity association exists for the
+#         # ServiceAccount `demo-db` in namespace `demo`.
+#         backup:
+#           enabled: false
+#           destinationPath: ""
 
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: demo
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: demo
 
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 15s
-        factor: 2
-        maxDuration: 3m
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+#     syncOptions:
+#       - CreateNamespace=true
+#       - ServerSideApply=true
+#     retry:
+#       limit: 5
+#       backoff:
+#         duration: 15s
+#         factor: 2
+#         maxDuration: 3m

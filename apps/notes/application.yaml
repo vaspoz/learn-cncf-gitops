@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # The release name, and therefore the resource names:
+  #   Deployment/notes, Service/notes, Cluster/notes-db, Secret/notes-db-app
+  name: notes
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  # Two sources: the blueprint chart, and this directory's values.yaml.
+  # The second source contributes no manifests -- `ref: values` just gives the
+  # first source a handle ($values) to read files from the same repo.
+  sources:
+    - repoURL: https://github.com/vaspoz/learn-cncf-gitops.git
+      targetRevision: HEAD
+      path: charts/app-with-db
+      helm:
+        valueFiles:
+          - $values/apps/notes/values.yaml
+
+    - repoURL: https://github.com/vaspoz/learn-cncf-gitops.git
+      targetRevision: HEAD
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: notes
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

@@ -1,0 +1,25 @@
+# Configuration for the "notes" application.
+#
+# This renders the charts/app-with-db blueprint. Only set what differs from
+# that chart's defaults -- see charts/app-with-db/values.yaml for the full list.
+
+app:
+  replicas: 2
+
+database:
+  instances: 3
+
+  storage:
+    size: 5Gi
+
+  synchronous:
+    enabled: true
+    number: 1
+
+# Continuous backup to S3.
+#
+# Requires an EKS Pod Identity association for the ServiceAccount CNPG creates,
+# which is named after the database cluster: "<release>-db" -> "notes-db".
+backup:
+  enabled: false
+  destinationPath: ""
